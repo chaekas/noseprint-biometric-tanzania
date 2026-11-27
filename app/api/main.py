@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.routes import animals, biometrics
+from app.api.routes import animals, biometrics, system
 
 app = FastAPI(
     title="Nose Print Biometric Identification API",
@@ -8,6 +8,7 @@ app = FastAPI(
 )
 app.include_router(animals.router, prefix="/api/v1")
 app.include_router(biometrics.router, prefix="/api/v1")
+app.include_router(system.router, prefix="/api/v1")
 
 
 @app.get("/health")
