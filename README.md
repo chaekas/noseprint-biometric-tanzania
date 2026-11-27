@@ -1,57 +1,115 @@
 # Nose Print Biometric Identification – Tanzania
 
-An open-source proof of concept (PoC) for livestock nose-print image capture, registration, storage and candidate identification using pretrained computer-vision models.
+Open-source proof of concept (PoC) for livestock nose-print image capture, registration, storage and candidate identification using pretrained computer-vision models.
 
-**Status:** Early PoC / research prototype — not approved for production or legal identity decisions.
+**Status:** Early research prototype. Not production-ready and not suitable as standalone proof of animal identity or ownership.
 
-## Goals
+## Current implementation
 
-- Capture nose/muzzle images from a computer webcam or an Android phone browser.
-- Register an animal with multiple reference images (recommended: 3–5 varied, sharp images).
-- Store original images and model-versioned feature embeddings.
-- Compare a new scan against registered references and return a candidate animal or **Unknown**.
-- Evaluate performance on public data before any field deployment.
+- FastAPI backend: register animals, list records and identify a candidate.
+- Streamlit browser UI: animal registration with 3–5 camera captures, scan/identify and animal records.
+- PyTorch/TorchVision pretrained ResNet18 feature extractor (512-dimensional normalized embeddings).
+- PostgreSQL + pgvector schema for animals, images, embeddings and identification logs.
+- Local image storage; images and secrets are excluded from Git.
 
-## Proposed architecture
+## Architecture
 
-- **UI:** Streamlit (browser camera capture; Android remote access requires HTTPS).
+- **Capture/UI:** Streamlit browser camera component; desktop webcam and Android browser.
 - **API:** FastAPI.
-- **Computer vision:** PyTorch + TorchVision pretrained ResNet18 baseline.
+- **Computer vision:** PyTorch + TorchVision ResNet18 pretrained on ImageNet.
 - **Database:** PostgreSQL + pgvector.
-- **Image storage:** Local filesystem for this PoC; production storage must be secured and backed up.
+- **Image storage:** Local filesystem for this PoC.
 
-The initial ResNet18 model is a generic ImageNet feature extractor, **not a validated nose-print biometric model**. Similarity scores are not probabilities and must not be treated as proof of identity.
+The ResNet18 model is a generic ImageNet feature extractor, **not a validated nose-print biometric model**. Similarity scores are not probabilities. The current default threshold (0.75) is provisional and must be calibrated against validation data.
 
-## Repository roadmap
+## Run locally (Windows PowerShell)
 
-1. Project foundation, configuration and local development environment.
-2. PostgreSQL schema with pgvector and model-versioned embeddings.
-3. Image preprocessing and pretrained embedding extraction.
-4. Animal registration with multiple images.
-5. Nose-print candidate identification and Unknown rejection.
-6. Streamlit capture UI for desktop webcam and Android browser.
-7. Evaluation: animal-disjoint splits, FAR, FRR, EER and Rank-1 accuracy.
-8. Security, audit trail, documentation and deployment hardening.
+1. Install Python 3.11+ and Docker Desktop.
+2. Clone this repository and enter its directory:
 
-## Quick start
+```powershell
+git clone https://github.com/chaekas/noseprint-biometric-tanzania.git
+cd noseprint-biometric-tanzania
+```
 
-The runnable application setup will be added in subsequent implementation commits. See the project documentation as the PoC is built.
+3. Create and activate a virtual environment:
 
-## Data and research notes
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-A public cattle muzzle/nose-print dataset has been identified as a possible starting point. Before downloading, using or redistributing it, verify its current license and terms. Dataset conditions may differ significantly from Tanzanian field, market and auction environments.
+4. Create local environment configuration:
 
-For credible evaluation:
-- Keep all images of a given animal in only one data split.
-- Where possible, separate capture sessions between training/reference and testing.
-- Calibrate the match threshold on validation data; do not assume a universal cosine threshold.
-- Report false acceptance and false rejection rates, not only overall accuracy.
-- Include an **Unknown** outcome and human review for uncertain matches.
+```powershell
+Copy-Item .env.example .env
+```
 
-## Responsible use
+5. Start PostgreSQL + pgvector:
 
-This prototype is for research and technical feasibility testing. A match must not be used alone to establish ownership, support enforcement, or make an irreversible decision. Production use requires field validation, privacy and data-protection review, access control, encryption, audit logging, retention rules and operational security.
+```powershell
+docker compose up -d
+```
+
+The database is exposed on host port **5433** to avoid conflicting with a local PostgreSQL installation. The initial schema is applied automatically when the database volume is first created.
+
+6. Start the API in terminal 1:
+
+```powershell
+uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API docs: http://127.0.0.1:8000/docs
+
+7. Start the Streamlit UI in terminal 2:
+
+```powershell
+streamlit run dashboard/streamlit_app.py
+```
+
+Open the local Streamlit URL shown in the terminal.
+
+## Android camera access
+
+A desktop browser accessing localhost can use the camera with browser permission. For an Android phone accessing Streamlit over a LAN, browsers generally require a secure HTTPS origin for camera access. Configure a trusted HTTPS reverse proxy for remote-device testing. Do not expose the development API or database directly to the public internet.
+
+## Registration and identification
+
+- Register one animal using 3–5 clear, focused nose/muzzle images.
+- Each reference image is stored separately and gets its own embedding.
+- Scan a new image; the API compares it with registered embeddings for the same model version.
+- The result is a **candidate** or **Unknown**. A human must review any candidate.
+
+## Research validation requirements
+
+- Use animal-disjoint dataset splits; never put images of the same animal in both reference/training and test sets.
+- Where possible, separate capture sessions between reference and test data.
+- Calibrate thresholds using validation data, not intuition.
+- Report FAR, FRR, EER, Rank-1 identification and unknown-animal rejection.
+- Test Tanzanian field/auction conditions: lighting, dirt, wet noses, camera quality, pose and image distance.
+- Keep model versions separate; do not compare embeddings generated by different models.
+
+A public cattle muzzle/nose-print dataset has been identified as a possible starting point. Verify its current license and terms before use or redistribution. Dataset conditions may differ from Tanzanian livestock environments.
+
+## Responsible use and limitations
+
+This prototype is for technical feasibility research. A match must not be used alone to establish ownership, support enforcement or make irreversible decisions. Production use requires field validation, privacy/data-protection review, access control, encryption, audit logging, retention rules, secure image storage, backups and operational security.
+
+## Roadmap
+
+1. [x] Repository foundation and project configuration
+2. [x] PostgreSQL/pgvector schema
+3. [x] Pretrained embedding extraction baseline
+4. [x] Registration API with multiple reference images
+5. [x] Candidate identification API and Unknown outcome
+6. [x] Streamlit camera UI
+7. [ ] Automated tests and full local integration verification
+8. [ ] Dataset evaluation and threshold calibration
+9. [ ] Improved nose/muzzle detection, image quality checks and model fine-tuning
+10. [ ] Authentication, audit/security hardening and deployment documentation
 
 ## License
 
-A license will be selected and added after reviewing the intended dataset and contribution model. Until then, no reuse license is granted by this repository.
+No reuse license has been added yet. Licensing will be selected after reviewing the project contribution model and dataset terms.
